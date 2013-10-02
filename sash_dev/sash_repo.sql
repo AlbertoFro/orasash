@@ -14,6 +14,7 @@ prompt Crating SASH_REPO package
 CREATE OR REPLACE PACKAGE sash_repo AS
     procedure purge_tables;
     procedure add_db(v_host varchar2, v_port number, v_sash_pass varchar2, v_db_name varchar2, v_sid varchar2, v_inst_num number, v_version varchar2 default '', v_cpu_count number default 0);
+    procedure add_db12c(v_host varchar2, v_port number, v_sash_pass varchar2, v_db_name varchar2, v_sid varchar2, v_inst_num number, v_version varchar2 default '', v_cpu_count number default 0);
     procedure setup_jobs;
     procedure stop_collecting_jobs;
     procedure start_collecting_jobs;
@@ -404,6 +405,38 @@ begin
         log_message('add_db', 'Database ' || v_db_name || ' instance ' || v_inst_num || ' already added','W');	
     end if;
 end;
+
+procedure add_db12c(v_host varchar2, v_port number, v_sash_pass varchar2, v_db_name varchar2, v_sid varchar2, v_inst_num number, v_version varchar2 default '', v_cpu_count number default 0) is
+v_dblink varchar2(30);
+v_dblink_target varchar2(4000);
+no_db_link EXCEPTION;
+PRAGMA EXCEPTION_INIT(no_db_link, -2024);
+v_dbid number;
+v_check number;
+s_version sash_targets.version%TYPE;
+
+begin
+	v_dblink_target:='(DESCRIPTION = (ADDRESS_LIST = (ADDRESS = (PROTOCOL = TCP)(HOST =' || v_host || ')(PORT = ' || v_port || ')))(CONNECT_DATA = (SERVICE_NAME = ' || v_sid || ')))';
+    --v_dblink := v_db_name || v_inst_num || replace(substr(v_host,1,8),'.','_');
+    v_dblink := substr(v_db_name || '_' || replace(replace(v_host,'.','_'),'-','_'),1,30);
+    begin
+        execute immediate 'drop database link ' || v_dblink;
+        dbms_output.put_line('Link dropped');
+    exception when no_db_link then
+            log_message('add_db', 'no db link - moving forward ' || v_dblink  ,'W');
+    end;
+    execute immediate 'create database link ' || v_dblink || ' connect to sash identified by ' || v_sash_pass || ' using ''' || v_dblink_target || '''';
+    execute immediate 'select dbid from sys.v_$database@' || v_dblink into v_dbid;
+	execute immediate 'select version from v$instance@' || v_dblink into s_version;
+    select count(*) into v_check from sash_targets where dbid = v_dbid and inst_num = v_inst_num;
+    if v_check = 0 then 
+        insert into sash_targets (dbid, host, port, dbname, sid, inst_num, db_link, version, cpu_count) values (v_dbid, v_host, v_port, v_db_name, v_sid, v_inst_num, v_dblink, coalesce(v_version, s_version), v_cpu_count);
+    else 
+        log_message('add_db', 'Database ' || v_db_name || ' instance ' || v_inst_num || ' already added','W');	
+    end if;
+end;
+
+
 
 procedure remove_instance_job (v_dbname varchar2, v_inst_num number)  is
  v_dbid number;
