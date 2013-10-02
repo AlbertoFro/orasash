@@ -20,7 +20,7 @@ spool off
 
 WHENEVER SQLERROR CONTINUE NONE 
 
-
+connect &SASH_USER/&SASH_PASS&SASH_TNS
 set term off
 spool exit.sql
 select 'exit' from dual where SYS_CONTEXT ('USERENV', 'SESSION_USER') != upper('&SASH_USER');
