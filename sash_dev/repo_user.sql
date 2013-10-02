@@ -14,6 +14,7 @@ accept SASH_USER default sash prompt "Enter user name (schema owner) [or enter t
 accept SASH_PASS default sash prompt "Enter user password ? "
 accept SASH_TS default users prompt "Enter SASH user default tablespace [or enter to accept USERS tablespace] ? "
 prompt SASH default tablespace is: &SASH_TS
+accept SASH_TNS default @SASH prompt "TNS String Connection [or enter to accept @SASH string connection] ? "
 
 prompt "------------------------------------------------------------------------------------"
 prompt Existing &SASH_USER user will be deleted.
